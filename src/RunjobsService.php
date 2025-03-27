@@ -27,9 +27,9 @@ class RunjobsService {
 	}
 
 	public function run() {
+		$this->output->writeln( "<info>Starting run</info>" );
+		$this->output->writeln( "<info>Cooldown set to " . $this->config->getJobConfig()['cooldown'] . " seconds</info>" );
 		while ( true ) {
-			$this->output->writeln( "<info>Starting run</info>" );
-			$this->output->clear();
 			if ( $this->config->isFarmingEnvironment() ) {
 				$this->assertManagementConnection();
 				$this->runInParallel();
@@ -42,7 +42,6 @@ class RunjobsService {
 					$this->output->writeln( "<error>Process failed" . $process->getErrorOutput() . "</error>" );
 				}
 			}
-			$this->output->writeln( "<info>Cooldown for " . $this->config->getJobConfig()['cooldown'] . " seconds</info>" );
 			sleep( $this->config->getJobConfig()['cooldown'] );
 		}
 	}
