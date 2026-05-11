@@ -2,6 +2,7 @@
 
 namespace BlueSpice\Service\ParallelRunJobs;
 
+use Monolog\Handler\FilterHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;
@@ -44,7 +45,16 @@ class RunjobsCommand extends Command {
 
 		$level = Level::fromName( $config->getLogLevel() );
 		$logger = new Logger( 'parallel-runjobs' );
-		$logger->pushHandler( new StreamHandler( 'php://stderr', $level ) );
+		$stdoutHandler = new FilterHandler(
+			new StreamHandler( 'php://stdout' ),
+			Level::Debug, Level::Notice
+		);
+		$stderrHandler = new FilterHandler(
+			new StreamHandler( 'php://stderr' ),
+			Level::Warning, Level::Emergency
+		);
+		$logger->pushHandler( $stdoutHandler );
+		$logger->pushHandler( $stderrHandler );
 
 		$logger->notice( 'Started executing runjobs service' );
 
