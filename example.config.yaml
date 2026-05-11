@@ -1,3 +1,4 @@
+loglevel: "NOTICE" # Optional, defaults to NOTICE. Can be overridden by PARALLEL_RUNJOBS_SERVICE_LOGLEVEL env var
 environment:
     php: "/usr/bin/php" # Optional, defaults to /usr/bin/php
 wiki:

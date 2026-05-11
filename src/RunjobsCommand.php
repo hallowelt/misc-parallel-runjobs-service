@@ -2,6 +2,9 @@
 
 namespace BlueSpice\Service\ParallelRunJobs;
 
+use Monolog\Handler\StreamHandler;
+use Monolog\Level;
+use Monolog\Logger;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,9 +17,6 @@ class RunjobsCommand extends Command {
 
 	/** @var string */
 	protected static $defaultName = 'runjobs';
-
-	/** @var OutputInterface */
-	private $output;
 
 	protected function configure() {
 		$this
@@ -35,19 +35,20 @@ class RunjobsCommand extends Command {
 	}
 
 	protected function execute( InputInterface $input, OutputInterface $output ) {
-		$this->output = $output->section();
-		$runjobsOutputSection = $output->section();
-
 		if ( !$input->hasOption( 'config' ) ) {
-			$this->output->writeln( '<error>No configuration file provided</error>' );
+			$output->writeln( '<error>No configuration file provided</error>' );
 			return Command::INVALID;
 		}
 		$configFilePath = $input->getOption( 'config' );
 		$config = $this->loadConfig( $configFilePath );
 
-		$this->output->writeln( '<info>Started executing runjobs service</info>' );
+		$level = Level::fromName( $config->getLogLevel() );
+		$logger = new Logger( 'parallel-runjobs' );
+		$logger->pushHandler( new StreamHandler( 'php://stderr', $level ) );
 
-		$runjobsService = new RunjobsService( $config, $runjobsOutputSection );
+		$logger->notice( 'Started executing runjobs service' );
+
+		$runjobsService = new RunjobsService( $config, $logger );
 		$runjobsService->run();
 
 		return Command::SUCCESS;
