@@ -3,6 +3,7 @@ environment:
 wiki:
     type: "standalone" # "standalone" or "farm", optional, defaults to "standalone"
     path: "/var/www/html/w"
+queue: "database" # "database" or "redis", optional, defaults to "database
 database:
     dbserver: "127.0.0.1" # Optional, defaults to localhost
     dbport: 3306 # Optional, defaults to 3306
@@ -10,6 +11,11 @@ database:
     dbuser: "root"
     dbpassword: "password"
     dbprefix: "" # Optional, defaults to ""
+redis:
+    host: "127.0.0.1"
+    port: 6379 # Optional, defaults to 6379
+    password: "" # Optional, defaults to ""
+    database: 0 # Optional, defaults to 0
 runjobs:
     maxtime: 30         # Maximum TTL of a runJobs.php (Per wiki, per cycle) - Seconds, optional
     maxjobs: 50        # Maximum number of jobs to run in a single call, optional

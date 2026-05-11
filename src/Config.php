@@ -10,8 +10,12 @@ class Config {
 	public $path;
 	/** @var string */
 	public $type;
-	/** @var array */
-	public $dbConnection;
+	/** @var string */
+	public string $queue;
+	/** @var array|null */
+	public ?array $connection;
+	/** @var array|null */
+	public ?array $redisConnection;
 	/** @var array */
 	public $jobConfig;
 	/** @var array */
@@ -32,17 +36,32 @@ class Config {
 		$farm['maxparallel'] = (int)( $farm['maxparallel'] ?? 10 );
 
 		static::assertRequiredValues( [ 'path' ], $wiki );
-		$db = $values['database'] ?? [];
+		$queue = $values['queue'] ?? 'database';
+		$connection = null;
+		$redisConnection = null;
 		if ( $wiki['type'] === 'farm' ) {
-			static::assertRequiredValues( [ 'dbname', 'dbuser', 'dbpassword' ], $db );
-			$db = [
-				'dbserver' => $db['dbserver'] ?? 'localhost',
-				'dbname' => $db['dbname'],
-				'dbuser' => $db['dbuser'],
-				'dbpassword' => $db['dbpassword'],
-				'dbprefix' => $db['dbprefix'] ?? '',
-				'dbport' => $db['dbport'] ?? '3306',
+			$dbConfig = $values['database'] ?? [];
+			static::assertRequiredValues( [ 'dbname', 'dbuser', 'dbpassword' ], $dbConfig );
+			$connection = [
+				'dbserver' => $dbConfig['dbserver'] ?? 'localhost',
+				'dbname' => $dbConfig['dbname'],
+				'dbuser' => $dbConfig['dbuser'],
+				'dbpassword' => $dbConfig['dbpassword'],
+				'dbprefix' => $dbConfig['dbprefix'] ?? '',
+				'dbport' => $dbConfig['dbport'] ?? '3306',
 			];
+			if ( $queue === 'redis' ) {
+				$redisConfig = $values['redis'] ?? [];
+				static::assertRequiredValues( [ 'host', 'port' ], $redisConfig );
+				$redisConnection = [
+					'host' => $redisConfig['host'],
+					'port' => (int)( $redisConfig['port'] ),
+					'password' => $redisConfig['password'] ?? null,
+					'database' => (int)( $redisConfig['database'] ?? 0 ),
+				];
+			} elseif ( $queue !== 'database' ) {
+				throw new InvalidArgumentException( "Unsupported queue type: $queue" );
+			}
 		}
 
 		$jobs = [
@@ -57,7 +76,9 @@ class Config {
 		return new static(
 			$wiki['path'],
 			$wiki['type'] ?? 'standalone',
-			$db,
+			$queue,
+			$connection,
+			$redisConnection,
 			$jobs,
 			$farm,
 			$environment
@@ -80,17 +101,22 @@ class Config {
 	/**
 	 * @param string $path
 	 * @param string $type
-	 * @param array $dbConnection
+	 * @param string $queue
+	 * @param array|null $connection
+	 * @param array|null $redisConnection
 	 * @param array $jobConfig
 	 * @param array $farmConfig
 	 * @param array $environment
 	 */
 	public function __construct(
-		string $path, string $type, array $dbConnection, array $jobConfig, array $farmConfig, array $environment
+		string $path, string $type, string $queue, ?array $connection, ?array $redisConnection,
+		array $jobConfig, array $farmConfig, array $environment
 	) {
 		$this->path = $path;
 		$this->type = $type;
-		$this->dbConnection = $dbConnection;
+		$this->queue = $queue;
+		$this->connection = $connection;
+		$this->redisConnection = $redisConnection;
 		$this->jobConfig = $jobConfig;
 		$this->farmConfig = $farmConfig;
 		$this->environment = $environment;
@@ -118,10 +144,24 @@ class Config {
 	}
 
 	/**
-	 * @return array
+	 * @return string
 	 */
-	public function getDbConnection(): array {
-		return $this->dbConnection;
+	public function getQueue(): string {
+		return $this->queue;
+	}
+
+	/**
+	 * @return array|null
+	 */
+	public function getConnection(): ?array {
+		return $this->connection;
+	}
+
+	/**
+	 * @return array|null
+	 */
+	public function getRedisConnection(): ?array {
+		return $this->redisConnection;
 	}
 
 	/**

@@ -3,6 +3,8 @@ venv
 !logs/.gitkeep
 logs/*
 config.yaml
+config-*.yaml
 vendor/
 .idea/
 .vscode/
+box.phar
