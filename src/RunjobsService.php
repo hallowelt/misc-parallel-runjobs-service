@@ -4,22 +4,22 @@ namespace BlueSpice\Service\ParallelRunJobs;
 
 use BlueSpice\Service\ParallelRunJobs\Runner\Parallel;
 use BlueSpice\Service\ParallelRunJobs\Runner\Single;
-use Symfony\Component\Console\Output\OutputInterface;
+use Psr\Log\LoggerInterface;
 
 class RunjobsService {
 
 	/** @var Config */
 	private Config $config;
-	/** @var OutputInterface */
-	private OutputInterface $output;
+	/** @var LoggerInterface */
+	private LoggerInterface $logger;
 
 	/**
 	 * @param Config $config
-	 * @param OutputInterface $output
+	 * @param LoggerInterface $logger
 	 */
-	public function __construct( Config $config, OutputInterface $output ) {
+	public function __construct( Config $config, LoggerInterface $logger ) {
 		$this->config = $config;
-		$this->output = $output;
+		$this->logger = $logger;
 	}
 
 	/**
@@ -28,8 +28,8 @@ class RunjobsService {
 	 */
 	public function run() {
 		$runner = $this->config->isFarmingEnvironment() ?
-			new Parallel( $this->config, $this->output ) :
-			new Single( $this->config, $this->output );
+			new Parallel( $this->config, $this->logger ) :
+			new Single( $this->config, $this->logger );
 
 		$runner->start();
 	}

@@ -4,7 +4,7 @@ namespace BlueSpice\Service\ParallelRunJobs\Queue;
 
 use BlueSpice\Service\ParallelRunJobs\Config;
 use mysqli;
-use Symfony\Component\Console\Output\OutputInterface;
+use Psr\Log\LoggerInterface;
 
 class DatabaseQueue implements Queue {
 
@@ -18,7 +18,7 @@ class DatabaseQueue implements Queue {
 
 	public function __construct(
 		protected Config $config,
-		protected OutputInterface $output
+		protected LoggerInterface $logger
 	) {
 	}
 
@@ -86,7 +86,7 @@ class DatabaseQueue implements Queue {
 		// Test connection
 		$this->managementDb->query( 'SELECT 1' );
 		if ( $this->managementDb->errno ) {
-			$this->output->writeln( '<error>Management database connection failed</error>' );
+			$this->logger->error( 'Management database connection failed' );
 			exit( 1 );
 		}
 	}

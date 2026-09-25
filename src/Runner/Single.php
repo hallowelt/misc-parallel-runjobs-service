@@ -3,7 +3,7 @@
 namespace BlueSpice\Service\ParallelRunJobs\Runner;
 
 use BlueSpice\Service\ParallelRunJobs\Config;
-use Symfony\Component\Console\Output\OutputInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Process\Process;
 
 /**
@@ -13,11 +13,11 @@ class Single {
 
 	/**
 	 * @param Config $config
-	 * @param OutputInterface $output
+	 * @param LoggerInterface $logger
 	 */
 	public function __construct(
 		protected Config $config,
-		protected OutputInterface $output
+		protected LoggerInterface $logger
 	) {
 	}
 
@@ -26,19 +26,19 @@ class Single {
 	 */
 	public function start() {
 		while ( true ) {
-			$this->output->writeln( "<info>Starting run</info>" );
-			$this->output->clear();
+			$this->logger->debug( 'Starting run' );
 
 			$process = $this->getProcess();
 			$process->run( function ( $type, $buffer ) {
-				$this->output->write( $buffer );
+				$this->logger->debug( $buffer );
 			} );
 			if ( $process->getExitCode() !== 0 ) {
-				$this->output->writeln( "<error>Process failed" . $process->getErrorOutput() . "</error>" );
+				$this->logger->error( 'Process failed: ' . $process->getErrorOutput() );
 			}
 
-			$this->output->writeln( "<info>Cooldown for " . $this->config->getJobConfig()['cooldown'] . " seconds</info>" );
-			sleep( $this->config->getJobConfig()['cooldown'] );
+			$cooldown = $this->config->getJobConfig()['cooldown'];
+			$this->logger->debug( "Cooldown for $cooldown seconds" );
+			sleep( $cooldown );
 		}
 	}
 

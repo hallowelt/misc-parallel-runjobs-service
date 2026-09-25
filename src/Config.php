@@ -22,6 +22,8 @@ class Config {
 	public $farmConfig;
 	/** @var array */
 	public $environment;
+	/** @var string */
+	public string $logLevel;
 
 	/**
 	 * @param array $values
@@ -30,6 +32,8 @@ class Config {
 	public static function newFromValues( mixed $values ): static {
 		$environment = $values['environment'] ?? [];
 		$wiki = $values['wiki'] ?? [];
+		$envLogLevel = getenv( 'PARALLEL_RUNJOBS_SERVICE_LOGLEVEL' );
+		$logLevel = $envLogLevel !== false ? $envLogLevel : ( $values['loglevel'] ?? 'NOTICE' );
 
 		$jobs = $values['runjobs'] ?? [];
 		$farm = $values['farm'] ?? [];
@@ -81,7 +85,8 @@ class Config {
 			$redisConnection,
 			$jobs,
 			$farm,
-			$environment
+			$environment,
+			strtoupper( $logLevel )
 		);
 	}
 
@@ -110,7 +115,7 @@ class Config {
 	 */
 	public function __construct(
 		string $path, string $type, string $queue, ?array $connection, ?array $redisConnection,
-		array $jobConfig, array $farmConfig, array $environment
+		array $jobConfig, array $farmConfig, array $environment, string $logLevel = 'NOTICE'
 	) {
 		$this->path = $path;
 		$this->type = $type;
@@ -120,6 +125,14 @@ class Config {
 		$this->jobConfig = $jobConfig;
 		$this->farmConfig = $farmConfig;
 		$this->environment = $environment;
+		$this->logLevel = $logLevel;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getLogLevel(): string {
+		return $this->logLevel;
 	}
 
 	/**

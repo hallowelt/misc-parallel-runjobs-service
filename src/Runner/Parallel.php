@@ -6,7 +6,7 @@ use BlueSpice\Service\ParallelRunJobs\Config;
 use BlueSpice\Service\ParallelRunJobs\Queue\DatabaseQueue;
 use BlueSpice\Service\ParallelRunJobs\Queue\Queue;
 use BlueSpice\Service\ParallelRunJobs\Queue\RedisQueue;
-use Symfony\Component\Console\Output\OutputInterface;
+use Psr\Log\LoggerInterface;
 
 class Parallel extends Single {
 
@@ -23,22 +23,22 @@ class Parallel extends Single {
 
 	/**
 	 * @param Config $config
-	 * @param OutputInterface $output
+	 * @param LoggerInterface $logger
 	 * @throws \RedisException
 	 */
-	public function __construct( Config $config, OutputInterface $output ) {
-		parent::__construct( $config, $output );
+	public function __construct( Config $config, LoggerInterface $logger ) {
+		parent::__construct( $config, $logger );
 		$this->runnerId = uniqid( 'runner_' );
 		$this->queue = null;
 		switch ( $this->config->getQueue() ) {
 			case 'database':
-				$this->queue = new DatabaseQueue( $config, $output );
+				$this->queue = new DatabaseQueue( $config, $logger );
 				break;
 			case 'redis':
-				$this->queue = new RedisQueue( $config, $output );
+				$this->queue = new RedisQueue( $config, $logger );
 				break;
 			default:
-				$this->output->writeln( '<error>Invalid queue specified</error>' );
+				$this->logger->error( 'Invalid queue specified' );
 				exit( 1 );
 		}
 	}
@@ -50,7 +50,7 @@ class Parallel extends Single {
 	 */
 	private function assignToSlot( int $slot, string $instance ): void {
 		$process = $this->getProcess( [ '--sfr=' . $instance ] );
-		$this->output->writeln( "<info>Starting for \"$instance\"</info>" );
+		$this->logger->debug( "Starting for \"$instance\"" );
 		$process->start();
 		$this->slots[$slot] = [
 			'instance' => $instance,
@@ -72,18 +72,21 @@ class Parallel extends Single {
 				// Prevent stuck slots, kill after a long time (2x max runtime)
 				if ( ( time() - $slot['startedAt'] ) > $maxRuntime ) {
 					$slot['process']->stop( 0 );
-					$this->output->writeln( "<error>Timed out for \"{$slot['instance']}\" after {$maxRuntime}s, killing</error>" );
+					$this->logger->error( "Timed out for \"{$slot['instance']}\" after {$maxRuntime}s, killing" );
 					$this->queue->onFailure( $slot['instance'] );
 					$this->slots[$index] = null;
 					return $index;
 				}
 				continue;
 			}
-			$this->output->writeln( "<info>Finished for \"{$slot['instance']}\"</info>" );
-			$this->output->write( $slot['process']->getOutput() );
+			$this->logger->debug( "Finished for \"{$slot['instance']}\"" );
+			$processOutput = $slot['process']->getOutput();
+			if ( $processOutput ) {
+				$this->logger->debug( $processOutput );
+			}
 			if ( $slot['process']->getExitCode() !== 0 ) {
 				$this->queue->onFailure( $slot['instance'] );
-				$this->output->writeln( "<error>Process failed\n" . $slot['process']->getErrorOutput() . "</error>" );
+				$this->logger->error( "Process failed\n" . $slot['process']->getErrorOutput() );
 			} else {
 				$this->queue->onSuccess( $slot['instance'] );
 			}
@@ -98,7 +101,7 @@ class Parallel extends Single {
 	 */
 	public function start() {
 		$maxParallel = $this->config->getFarmConfig()['maxparallel'];
-		$this->output->writeln( "<info>Running in parallel, $maxParallel at a time</info>" );
+		$this->logger->notice( "Running in parallel, $maxParallel at a time" );
 
 		$this->slots = array_fill( 0, $maxParallel, null );
 

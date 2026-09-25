@@ -4,10 +4,10 @@ namespace BlueSpice\Service\ParallelRunJobs\Queue;
 
 use BlueSpice\Service\ParallelRunJobs\Config;
 use BlueSpice\Service\ParallelRunJobs\QueueLock\RedisQueueLock;
+use Psr\Log\LoggerInterface;
 use Redis;
 use RedisException;
 use RuntimeException;
-use Symfony\Component\Console\Output\OutputInterface;
 
 class RedisQueue implements Queue {
 
@@ -28,12 +28,12 @@ class RedisQueue implements Queue {
 
 	/**
 	 * @param Config $config
-	 * @param OutputInterface $output
+	 * @param LoggerInterface $logger
 	 * @throws RedisException
 	 */
 	public function __construct(
 		protected Config $config,
-		protected OutputInterface $output
+		protected LoggerInterface $logger
 	) {
 		$this->assertRedisConnection();
 		$this->queueLock = new RedisQueueLock( $this->redis, $config );
