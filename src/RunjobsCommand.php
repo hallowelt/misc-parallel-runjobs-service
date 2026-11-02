@@ -46,11 +46,11 @@ class RunjobsCommand extends Command {
 		$level = Level::fromName( $config->getLogLevel() );
 		$logger = new Logger( 'parallel-runjobs' );
 		$stdoutHandler = new FilterHandler(
-			new StreamHandler( 'php://stdout' ),
+			new StreamHandler( 'php://stdout', $level ),
 			Level::Debug, Level::Notice
 		);
 		$stderrHandler = new FilterHandler(
-			new StreamHandler( 'php://stderr' ),
+			new StreamHandler( 'php://stderr', $level ),
 			Level::Warning, Level::Emergency
 		);
 		$logger->pushHandler( $stdoutHandler );

@@ -32,8 +32,10 @@ class Config {
 	public static function newFromValues( mixed $values ): static {
 		$environment = $values['environment'] ?? [];
 		$wiki = $values['wiki'] ?? [];
-		$envLogLevel = getenv( 'PARALLEL_RUNJOBS_SERVICE_LOGLEVEL' );
-		$logLevel = $envLogLevel !== false ? $envLogLevel : ( $values['loglevel'] ?? 'NOTICE' );
+		$envLogLevel = trim( (string)getenv( 'PARALLEL_RUNJOBS_SERVICE_LOGLEVEL' ) );
+		$logLevel = static::normalizeLogLevel(
+			$envLogLevel !== '' ? $envLogLevel : ( $values['loglevel'] ?? 'NOTICE' )
+		);
 
 		$jobs = $values['runjobs'] ?? [];
 		$farm = $values['farm'] ?? [];
@@ -86,8 +88,28 @@ class Config {
 			$jobs,
 			$farm,
 			$environment,
-			strtoupper( $logLevel )
+			$logLevel
 		);
+	}
+
+	/**
+	 * Accepts the PSR-3 level names case-insensitively, and `warn` (as in `WIKI_LOG_LEVEL`)
+	 *
+	 * @param string $logLevel
+	 * @return string
+	 */
+	protected static function normalizeLogLevel( string $logLevel ): string {
+		$logLevel = strtoupper( trim( $logLevel ) );
+		if ( $logLevel === 'WARN' ) {
+			$logLevel = 'WARNING';
+		}
+		$valid = [ 'DEBUG', 'INFO', 'NOTICE', 'WARNING', 'ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY' ];
+		if ( !in_array( $logLevel, $valid ) ) {
+			throw new InvalidArgumentException(
+				"Invalid log level: $logLevel, must be one of " . implode( ', ', $valid ) . ' or WARN'
+			);
+		}
+		return $logLevel;
 	}
 
 	/**
