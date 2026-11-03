@@ -107,13 +107,16 @@ class Parallel extends Single {
 
 		while ( true ) {
 			$freeSlot = $this->getFreeSlot();
-			if ( $freeSlot !== null ) {
-				$next = $this->queue->getNext();
-				if ( $next ) {
-					$this->assignToSlot( $freeSlot, $next );
-				} else {
-					sleep( $this->config->getJobConfig()['cooldown'] );
-				}
+			if ( $freeSlot === null ) {
+				// All slots busy, avoid busy-waiting
+				usleep( 250000 );
+				continue;
+			}
+			$next = $this->queue->getNext();
+			if ( $next ) {
+				$this->assignToSlot( $freeSlot, $next );
+			} else {
+				sleep( $this->config->getJobConfig()['cooldown'] );
 			}
 		}
 	}
