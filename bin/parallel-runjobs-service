@@ -6,7 +6,12 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Symfony\Component\Console\Application;
 use BlueSpice\Service\ParallelRunJobs\RunjobsCommand;
 
-$application = new Application('Mediawiki RunJobs Service', '1.0.0');
+// Replaced by Box with `git describe --tags HEAD` at build time (see box.json "git-version")
+$version = '@package_version@';
+if ( str_starts_with( $version, '@' ) ) {
+	$version = 'dev';
+}
+$application = new Application( 'MediaWiki RunJobs Service', $version );
 $application->add( new RunjobsCommand() );
 $application->setDefaultCommand( 'runjobs', true );
 $application->setAutoExit( false );

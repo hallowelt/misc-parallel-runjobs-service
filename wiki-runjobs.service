@@ -1,5 +1,5 @@
 [Unit]
-Description=Mediawiki RunJobs Service
+Description=MediaWiki RunJobs Service
 After=network.target
 
 [Service]
