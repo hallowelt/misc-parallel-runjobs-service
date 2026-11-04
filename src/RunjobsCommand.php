@@ -56,12 +56,43 @@ class RunjobsCommand extends Command {
 		$logger->pushHandler( $stdoutHandler );
 		$logger->pushHandler( $stderrHandler );
 
-		$logger->notice( 'Started executing runjobs service' );
+		$logger->notice( sprintf(
+			'Starting runjobs service (type: %s, wiki path: %s, queue: %s, log level: %s, php: %s, ' .
+				'maxjobs: %d, maxtime: %ds, cooldown: %ds)',
+			$config->getType(),
+			$config->getPath(),
+			$config->isFarmingEnvironment() ? $config->getQueue() : 'n/a',
+			$config->getLogLevel(),
+			$config->getPhpPath(),
+			$config->getJobConfig()['maxjobs'],
+			$config->getJobConfig()['maxtime'],
+			$config->getJobConfig()['cooldown']
+		) );
+		$this->registerShutdownSignals( $logger );
 
 		$runjobsService = new RunjobsService( $config, $logger );
 		$runjobsService->run();
 
 		return Command::SUCCESS;
+	}
+
+	/**
+	 * Log a message when the service is stopped (e.g. by the init script), if pcntl is available
+	 *
+	 * @param Logger $logger
+	 * @return void
+	 */
+	private function registerShutdownSignals( Logger $logger ): void {
+		if ( !function_exists( 'pcntl_signal' ) ) {
+			return;
+		}
+		pcntl_async_signals( true );
+		foreach ( [ SIGTERM => 'SIGTERM', SIGINT => 'SIGINT' ] as $signal => $name ) {
+			pcntl_signal( $signal, static function () use ( $logger, $name ) {
+				$logger->notice( "Received $name, shutting down" );
+				exit( 0 );
+			} );
+		}
 	}
 
 	/**
