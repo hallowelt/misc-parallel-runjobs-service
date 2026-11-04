@@ -25,15 +25,23 @@ class Single {
 	 * @return void
 	 */
 	public function start() {
+		$this->logger->notice( 'Ready, running runJobs.php for standalone wiki' );
 		while ( true ) {
-			$this->logger->debug( 'Starting run' );
+			$this->logger->info( 'Starting run' );
 
+			$startedAt = microtime( true );
 			$process = $this->getProcess();
 			$process->run( function ( $type, $buffer ) {
 				$this->logger->debug( $buffer );
 			} );
+			$duration = round( microtime( true ) - $startedAt, 1 );
 			if ( $process->getExitCode() !== 0 ) {
-				$this->logger->error( 'Process failed: ' . $process->getErrorOutput() );
+				$this->logger->error(
+					"Process failed after {$duration}s with exit code {$process->getExitCode()}: " .
+					$process->getErrorOutput()
+				);
+			} else {
+				$this->logger->info( "Finished run in {$duration}s" );
 			}
 
 			$cooldown = $this->config->getJobConfig()['cooldown'];

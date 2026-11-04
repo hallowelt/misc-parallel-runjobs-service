@@ -84,6 +84,7 @@ class RedisQueue implements Queue {
 				}
 				if ( !$this->queueLock->obtainLock( $instance ) ) {
 					// Another (or hopefully not, this) runner is running is, cool it down for some time
+					$this->logger->debug( "Skipping \"$instance\", locked by another runner" );
 					$this->skippedUntil[$instance] = time() + self::SKIP_COOLDOWN;
 					continue;
 				}
@@ -136,5 +137,8 @@ class RedisQueue implements Queue {
 		if ( ( $connection['database'] ?? 0 ) > 0 ) {
 			$this->redis->select( $connection['database'] );
 		}
+		$this->logger->notice(
+			"Connected to Redis at {$connection['host']}:{$connection['port']}, database {$connection['database']}"
+		);
 	}
 }

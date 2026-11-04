@@ -37,6 +37,7 @@ class DatabaseQueue implements Queue {
 			}
 			$this->pending = $this->fetchAll();
 			$this->lastFetch = time();
+			$this->logger->info( 'Starting new round with ' . count( $this->pending ) . ' instances' );
 		}
 		while ( !empty( $this->pending ) ) {
 			$instance = array_shift( $this->pending );
@@ -100,11 +101,17 @@ class DatabaseQueue implements Queue {
 				$this->config->getConnection()['dbname'],
 				$this->config->getConnection()['dbport']
 			);
+			$this->logger->notice( sprintf(
+				'Connected to management database "%s" at %s:%s',
+				$this->config->getConnection()['dbname'],
+				$this->config->getConnection()['dbserver'],
+				$this->config->getConnection()['dbport']
+			) );
 		}
 		// Test connection
 		$this->managementDb->query( 'SELECT 1' );
 		if ( $this->managementDb->errno ) {
-			$this->logger->error( 'Management database connection failed' );
+			$this->logger->error( 'Management database connection failed: ' . $this->managementDb->error );
 			exit( 1 );
 		}
 	}
