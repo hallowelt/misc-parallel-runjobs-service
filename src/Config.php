@@ -40,6 +40,7 @@ class Config {
 		$jobs = $values['runjobs'] ?? [];
 		$farm = $values['farm'] ?? [];
 		$farm['maxparallel'] = (int)( $farm['maxparallel'] ?? 10 );
+		$farm['backoff'] = (int)( $farm['backoff'] ?? 60 );
 
 		static::assertRequiredValues( [ 'path' ], $wiki );
 		$queue = $values['queue'] ?? 'database';

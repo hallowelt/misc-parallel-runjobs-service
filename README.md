@@ -78,6 +78,10 @@ respecting `farm.maxparallel` config, and excluding/including instances based on
 
 If there are no jobs, or instance is already being processed by another runner, it will be skipped, and runner will wait for the next cycle to check for new jobs.
 
+An instance is paused for `farm.backoff` seconds if its run failed, or if the run did not take any job from the queue
+(e.g. job types unknown to that wiki, or an instance that does not exist anymore). Otherwise it would be started again
+right away, as its queue is still not empty.
+
 Only to be used when wiki's jobqueue is configured to use Redis,
 and the same Redis instance is used for both jobqueue and this service, so we can be sure that we are getting all the pending jobs.
 
@@ -96,6 +100,7 @@ This is suitable for distributed setups of this service and for large farms.
 | runjobs.maxjobs        | `50`                                              | positive integer                        | Max number of jobs to execute per cycle                                                                                                                                                |
 | runjobs.cooldown       | `1`                                               | positive integer                        | Pause between script executions                                                                                                                                                        |
 | farm.maxparallel       | `10`                                              | positive integer                        | Maximum number parallel processes                                                                                                                                                      |
+| farm.backoff           | `60`                                              | integer                                 | Redis mode: seconds to pause an instance after a failed run or a run without progress. `0` disables the pause                                                                          |
 | farm.exclude_instances | `[]`                                              | array of valid wiki farm instance names | contains list of farm instances name for which the runjobs should executed (has priority over includes, ie. If instance is specified in both include and exclude, it will be excluded) |
 | farm.include_instances | `[]`                                              | array of valid wiki farm instance names | contains list of farm instances name for which the runjobs should be run, if left empty, all the farm instances will be considered except the ones in `exclude_instances` list         |
 | database               | can be ommited competely for standalone - not used | string                                  | Database server                                                                                                                                                                        |

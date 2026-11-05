@@ -25,3 +25,4 @@ farm: # Whole section is optional
     # Exclude list has priority over include list
     include-instances: []
     exclude-instances: []
+    backoff: 60 # Redis mode: pause an instance after a failed run or a run without progress (seconds), optional
