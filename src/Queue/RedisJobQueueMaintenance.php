@@ -27,41 +27,7 @@ class RedisJobQueueMaintenance {
 	/** Max number of jobs per queue and step in one run, to not block Redis for too long */
 	private const BATCH_SIZE = 1000;
 
-	private const SCRIPT = <<<LUA
-local kUnclaimed, kClaimed, kAbandoned, kDelayed, kAttempts, kData = unpack(KEYS)
-local now, claimTTL, maxTries, pruneAge, limit =
-	tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3]), tonumber(ARGV[4]), tonumber(ARGV[5])
-local released, recycled, abandoned, pruned = 0, 0, 0, 0
--- Release delayed jobs that are due
-for _, id in ipairs(redis.call('zRangeByScore', kDelayed, 0, now, 'LIMIT', 0, limit)) do
-	redis.call('zRem', kDelayed, id)
-	redis.call('lPush', kUnclaimed, id)
-	released = released + 1
-end
--- Recycle or abandon jobs with expired claims
-if claimTTL > 0 then
-	for _, id in ipairs(redis.call('zRangeByScore', kClaimed, 0, now - claimTTL, 'LIMIT', 0, limit)) do
-		redis.call('zRem', kClaimed, id)
-		if tonumber(redis.call('hGet', kAttempts, id) or 0) < maxTries then
-			redis.call('lPush', kUnclaimed, id)
-			recycled = recycled + 1
-		else
-			redis.call('zAdd', kAbandoned, now, id)
-			abandoned = abandoned + 1
-		end
-	end
-end
--- Delete old abandoned jobs
-if pruneAge > 0 then
-	for _, id in ipairs(redis.call('zRangeByScore', kAbandoned, 0, now - pruneAge, 'LIMIT', 0, limit)) do
-		redis.call('zRem', kAbandoned, id)
-		redis.call('hDel', kAttempts, id)
-		redis.call('hDel', kData, id)
-		pruned = pruned + 1
-	end
-end
-return { released, recycled, abandoned, pruned }
-LUA;
+	private string $script;
 
 	/** @var int */
 	private int $lastRun = 0;
@@ -76,6 +42,13 @@ LUA;
 		private Config $config,
 		private LoggerInterface $logger
 	) {
+		$scriptPath = __DIR__ . '/RedisJobQueueMaintenance.lua';
+		$script = file_get_contents( $scriptPath );
+		if ( $script === false ) {
+			throw new \RuntimeException( "Failed to load Redis job queue maintenance script from \"$scriptPath\"" );
+		}
+		$this->script = $script;
+
 		$maintenanceConfig = $this->config->getRedisMaintenanceConfig();
 		if ( $maintenanceConfig['interval'] <= 0 ) {
 			$this->logger->warning(
@@ -128,7 +101,7 @@ LUA;
 			foreach ( [ 'l-unclaimed', 'z-claimed', 'z-abandoned', 'z-delayed', 'h-attempts', 'h-data' ] as $prop ) {
 				$keys[] = "$queue:$prop";
 			}
-			$result = $this->redis->eval( self::SCRIPT, array_merge( $keys, $args ), count( $keys ) );
+			$result = $this->redis->eval( $this->script, array_merge( $keys, $args ), count( $keys ) );
 			if ( !is_array( $result ) ) {
 				$this->logger->error( "Job queue maintenance failed for \"$queue\": " . $this->redis->getLastError() );
 				$this->redis->clearLastError();
