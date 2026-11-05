@@ -16,6 +16,8 @@ class Config {
 	public ?array $connection;
 	/** @var array|null */
 	public ?array $redisConnection;
+	/** @var array|null */
+	public ?array $redisMaintenance;
 	/** @var array */
 	public $jobConfig;
 	/** @var array */
@@ -45,6 +47,7 @@ class Config {
 		$queue = $values['queue'] ?? 'database';
 		$connection = null;
 		$redisConnection = null;
+		$redisMaintenance = null;
 		if ( $wiki['type'] === 'farm' ) {
 			$dbConfig = $values['database'] ?? [];
 			static::assertRequiredValues( [ 'dbname', 'dbuser', 'dbpassword' ], $dbConfig );
@@ -64,6 +67,13 @@ class Config {
 					'port' => (int)( $redisConfig['port'] ),
 					'password' => $redisConfig['password'] ?? null,
 					'database' => (int)( $redisConfig['database'] ?? 0 ),
+				];
+				// Must match `claimTTL` and `maxTries` of `$wgJobTypeConf` of the wiki
+				$redisMaintenance = [
+					'interval' => (int)( $redisConfig['maintenance-interval'] ?? 60 ),
+					'claimttl' => (int)( $redisConfig['claimttl'] ?? 3600 ),
+					'maxtries' => (int)( $redisConfig['maxtries'] ?? 3 ),
+					'pruneage' => (int)( $redisConfig['pruneage'] ?? 7 * 86400 ),
 				];
 			} elseif ( $queue !== 'database' ) {
 				throw new InvalidArgumentException( "Unsupported queue type: $queue" );
@@ -88,7 +98,8 @@ class Config {
 			$jobs,
 			$farm,
 			$environment,
-			$logLevel
+			$logLevel,
+			$redisMaintenance
 		);
 	}
 
@@ -134,10 +145,13 @@ class Config {
 	 * @param array $jobConfig
 	 * @param array $farmConfig
 	 * @param array $environment
+	 * @param string $logLevel
+	 * @param array|null $redisMaintenance
 	 */
 	public function __construct(
 		string $path, string $type, string $queue, ?array $connection, ?array $redisConnection,
-		array $jobConfig, array $farmConfig, array $environment, string $logLevel = 'NOTICE'
+		array $jobConfig, array $farmConfig, array $environment, string $logLevel = 'NOTICE',
+		?array $redisMaintenance = null
 	) {
 		$this->path = $path;
 		$this->type = $type;
@@ -148,6 +162,7 @@ class Config {
 		$this->farmConfig = $farmConfig;
 		$this->environment = $environment;
 		$this->logLevel = $logLevel;
+		$this->redisMaintenance = $redisMaintenance;
 	}
 
 	/**
@@ -197,6 +212,13 @@ class Config {
 	 */
 	public function getRedisConnection(): ?array {
 		return $this->redisConnection;
+	}
+
+	/**
+	 * @return array|null
+	 */
+	public function getRedisMaintenanceConfig(): ?array {
+		return $this->redisMaintenance;
 	}
 
 	/**
