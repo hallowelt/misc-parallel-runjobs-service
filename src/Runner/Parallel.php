@@ -35,6 +35,10 @@ class Parallel extends Single {
 				$this->queue = new DatabaseQueue( $config, $logger );
 				break;
 			case 'redis':
+				if ( !extension_loaded( 'redis' ) ) {
+					$this->logger->error( 'Queue "redis" requires the PHP extension "redis", which is not loaded' );
+					exit( 1 );
+				}
 				$this->queue = new RedisQueue( $config, $logger );
 				break;
 			default:

@@ -12,11 +12,13 @@
 		"symfony/process": "^6.0",
 		"php": "^8.0",
 		"ext-mysqli": "*",
-		"ext-redis": "*",
 		"symfony/lock": "^6.4",
 		"symfony/cache": "^6.4",
 		"psr/log": "^2.0",
 		"monolog/monolog": "^3.0"
+	},
+	"suggest": {
+		"ext-redis": "Required when using the 'redis' queue"
 	},
 	"require-dev": {
 		"mediawiki/mediawiki-codesniffer": "48.0.1",
