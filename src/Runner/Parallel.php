@@ -53,7 +53,9 @@ class Parallel extends Single {
 	 * @return void
 	 */
 	private function assignToSlot( int $slot, string $instance ): void {
-		$process = $this->getProcess( [ '--sfr=' . $instance ] );
+		// Root instance must be called without --sfr: older BlueSpiceWikiFarm versions (e.g. 5.1)
+		// only strip the option from argv for non-root instances, causing "Unexpected option --sfr!"
+		$process = $this->getProcess( $instance === 'w' ? [] : [ '--sfr=' . $instance ] );
 		$this->logger->info( "Starting for \"$instance\"" );
 		$process->start();
 		$this->slots[$slot] = [
