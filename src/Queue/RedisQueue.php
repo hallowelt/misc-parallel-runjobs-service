@@ -26,6 +26,9 @@ class RedisQueue implements Queue {
 	/** @var array<string, int> Instance => timestamp until which it should be skipped */
 	private array $skippedUntil = [];
 
+	/** @var array<string, array<string, string|false>> Instance => ( queue key => oldest job ID ) at run start */
+	private array $oldestJobsAtStart = [];
+
 	/**
 	 * @param Config $config
 	 * @param LoggerInterface $logger
@@ -90,6 +93,7 @@ class RedisQueue implements Queue {
 				}
 				// Obtained lock, mark as in-flight and return instance
 				$this->inFlight[$instance] = true;
+				$this->oldestJobsAtStart[$instance] = $this->getOldestJobs( $instance );
 				return $instance;
 			}
 		}
@@ -102,7 +106,8 @@ class RedisQueue implements Queue {
 	 */
 	public function onFailure( string $instance ): void {
 		$this->queueLock->release( $instance );
-		unset( $this->inFlight[$instance] );
+		unset( $this->inFlight[$instance], $this->oldestJobsAtStart[$instance] );
+		$this->pause( $instance, 'run failed' );
 	}
 
 	/**
@@ -111,6 +116,51 @@ class RedisQueue implements Queue {
 	public function onSuccess( string $instance ): void {
 		$this->queueLock->release( $instance );
 		unset( $this->inFlight[$instance] );
+		$before = $this->oldestJobsAtStart[$instance] ?? [];
+		unset( $this->oldestJobsAtStart[$instance] );
+		// Jobs are popped from the end of `l-unclaimed`. If the oldest job of no queue has changed, the run did not
+		// pop anything (e.g. job types unknown to the wiki), and would be started again and again without the pause
+		if ( $before && $this->getOldestJobs( $instance ) === $before ) {
+			$this->pause( $instance, 'no jobs were taken from the queue' );
+		}
+	}
+
+	/**
+	 * @param string $instance
+	 * @param string $reason
+	 * @return void
+	 */
+	private function pause( string $instance, string $reason ): void {
+		$backoff = $this->config->getFarmConfig()['backoff'];
+		if ( $backoff <= 0 ) {
+			return;
+		}
+		$this->skippedUntil[$instance] = time() + $backoff;
+		$this->logger->warning( "Pausing \"$instance\" for {$backoff}s, $reason" );
+	}
+
+	/**
+	 * @param string $instance Key prefix ({wiki_id})
+	 * @return array<string, string|false> Queue key => ID of the oldest unclaimed job
+	 * @throws RedisException
+	 */
+	private function getOldestJobs( string $instance ): array {
+		$pattern = addcslashes( $instance, '*?[]\\' ) . ':jobqueue:*:l-unclaimed';
+		$keys = [];
+		$cursor = null;
+		while ( $cursor !== 0 ) {
+			$result = $this->redis->scan( $cursor, $pattern, 100 );
+			if ( $result === false ) {
+				break;
+			}
+			array_push( $keys, ...$result );
+		}
+		$oldest = [];
+		foreach ( array_unique( $keys ) as $key ) {
+			$oldest[$key] = $this->redis->lIndex( $key, -1 );
+		}
+		ksort( $oldest );
+		return $oldest;
 	}
 
 	/**
