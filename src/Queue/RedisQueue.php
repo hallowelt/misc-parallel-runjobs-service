@@ -20,6 +20,9 @@ class RedisQueue implements Queue {
 	/** @var Redis|null */
 	private ?Redis $redis = null;
 
+	/** @var RedisJobQueueMaintenance */
+	private RedisJobQueueMaintenance $maintenance;
+
 	/** @var array<string, true> Instances currently in-flight (returned but not yet resolved) */
 	private array $inFlight = [];
 
@@ -37,6 +40,7 @@ class RedisQueue implements Queue {
 	) {
 		$this->assertRedisConnection();
 		$this->queueLock = new RedisQueueLock( $this->redis, $config );
+		$this->maintenance = new RedisJobQueueMaintenance( $this->redis, $config, $logger );
 	}
 
 	/**
@@ -48,6 +52,8 @@ class RedisQueue implements Queue {
 	 * @throws RedisException
 	 */
 	public function getNext(): ?string {
+		$this->maintenance->runIfDue();
+
 		$include = $this->config->getFarmConfig()['include-instances'] ?? [];
 		$exclude = $this->config->getFarmConfig()['exclude-instances'] ?? [];
 		$include = array_diff( $include, $exclude );

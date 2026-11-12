@@ -83,6 +83,22 @@ and the same Redis instance is used for both jobqueue and this service, so we ca
 
 This is suitable for distributed setups of this service and for large farms.
 
+### Job queue maintenance
+
+MediaWiki only supports `JobQueueRedis` in "daemonized" mode, where a background service has to take care of
+delayed and failed jobs. In Redis mode, this service does that every `redis.maintenance-interval` seconds,
+for all queues found in Redis:
+- releases delayed jobs that are due
+- recycles jobs whose claim is older than `redis.claimttl` (failed or crashed runs), or abandons them after
+  `redis.maxtries` attempts (logged as warning)
+- deletes abandoned jobs older than `redis.pruneage`
+
+`redis.claimttl` and `redis.maxtries` must match `claimTTL` and `maxTries` of `$wgJobTypeConf` of the wiki.
+`redis.claimttl` must be greater than `runjobs.maxtime` plus the run time of the longest job, otherwise jobs
+may be executed twice.
+
+It is safe to run this on multiple runners. The `s-queuesWithJobs` set of MediaWiki is not cleaned up.
+
 # Config
 
 | name                   | default value                                     | accepted values                         | description                                                                                                                                                                            |
@@ -110,3 +126,7 @@ This is suitable for distributed setups of this service and for large farms.
 | redis.port             | 6379                                              | integer                                 | Redis port                                                                                                                                                                             |
 | redis.passsword        | `''`                                              | string                                  | Redis password (if applicable)                                                                                                                                                         |
 | redis.database         | 0                                                 | string| integer                                                                                                                                                                 |Redis databse
+| redis.maintenance-interval | `60`                                          | integer                                 | Seconds between two runs of the job queue maintenance. `0` disables it (not recommended)                                                                                             |
+| redis.claimttl         | `3600`                                            | integer                                 | Seconds after which a claimed job is considered failed and retried. Must match `claimTTL` of `$wgJobTypeConf`. `0`: never                                                             |
+| redis.maxtries         | `3`                                               | positive integer                        | Total attempts of a job before it is abandoned. Must match `maxTries` of `$wgJobTypeConf`                                                                                            |
+| redis.pruneage         | `604800`                                          | integer                                 | Seconds after which abandoned jobs are deleted. `0`: never                                                                                                                           |

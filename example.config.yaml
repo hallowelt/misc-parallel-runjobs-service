@@ -17,6 +17,10 @@ redis:
     port: 6379 # Optional, defaults to 6379
     password: "" # Optional, defaults to ""
     database: 0 # Optional, defaults to 0
+    maintenance-interval: 60 # Optional, defaults to 60 (seconds); 0 disables the job queue maintenance
+    claimttl: 3600 # Optional, defaults to 3600 (seconds); must match `claimTTL` of `$wgJobTypeConf`
+    maxtries: 3 # Optional, defaults to 3; must match `maxTries` of `$wgJobTypeConf`
+    pruneage: 604800 # Optional, defaults to 604800 (7 days); 0 keeps abandoned jobs
 runjobs:
     maxtime: 30         # Maximum TTL of a runJobs.php (Per wiki, per cycle) - Seconds, optional
     maxjobs: 50        # Maximum number of jobs to run in a single call, optional
