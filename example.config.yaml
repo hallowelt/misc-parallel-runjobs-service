@@ -6,8 +6,10 @@ wiki:
     path: "/var/www/html/w"
 queue: "database" # "database" or "redis", optional, defaults to "database
 database:
+    dbtype: "mysql" # "mysql" or "postgres", optional, defaults to "mysql"
     dbserver: "127.0.0.1" # Optional, defaults to localhost
-    dbport: 3306 # Optional, defaults to 3306
+    dbport: 3306 # Optional, defaults to 3306 for "mysql" and 5432 for "postgres"
+    dbschema: "mediawiki" # Optional, only for "postgres" (`$wgDBmwschema`), defaults to "mediawiki"
     dbname: "w"
     dbuser: "root"
     dbpassword: "password"

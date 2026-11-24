@@ -2,6 +2,7 @@
 
 namespace BlueSpice\Service\ParallelRunJobs;
 
+use BlueSpice\Service\ParallelRunJobs\Database\ManagementDatabaseFactory;
 use InvalidArgumentException;
 
 class Config {
@@ -48,13 +49,17 @@ class Config {
 		if ( $wiki['type'] === 'farm' ) {
 			$dbConfig = $values['database'] ?? [];
 			static::assertRequiredValues( [ 'dbname', 'dbuser', 'dbpassword' ], $dbConfig );
+			$dbType = static::normalizeDbType( $dbConfig['dbtype'] ?? 'mysql' );
 			$connection = [
+				'dbtype' => $dbType,
 				'dbserver' => $dbConfig['dbserver'] ?? 'localhost',
 				'dbname' => $dbConfig['dbname'],
 				'dbuser' => $dbConfig['dbuser'],
 				'dbpassword' => $dbConfig['dbpassword'],
 				'dbprefix' => $dbConfig['dbprefix'] ?? '',
-				'dbport' => $dbConfig['dbport'] ?? '3306',
+				'dbport' => (int)( $dbConfig['dbport'] ?? ManagementDatabaseFactory::DEFAULT_PORTS[$dbType] ),
+				// PostgreSQL only, same as MediaWiki's `$wgDBmwschema`
+				'dbschema' => $dbConfig['dbschema'] ?? 'mediawiki',
 			];
 			if ( $queue === 'redis' ) {
 				$redisConfig = $values['redis'] ?? [];
@@ -110,6 +115,26 @@ class Config {
 			);
 		}
 		return $logLevel;
+	}
+
+	/**
+	 * Accepts MediaWiki's `$wgDBtype` values and `pgsql`/`postgresql` as alias for `postgres`
+	 *
+	 * @param string $dbType
+	 * @return string
+	 */
+	protected static function normalizeDbType( string $dbType ): string {
+		$dbType = strtolower( trim( $dbType ) );
+		if ( in_array( $dbType, [ 'pgsql', 'postgresql' ] ) ) {
+			$dbType = 'postgres';
+		}
+		if ( !isset( ManagementDatabaseFactory::TYPES[$dbType] ) ) {
+			throw new InvalidArgumentException(
+				"Invalid database type: $dbType, must be one of "
+					. implode( ', ', array_keys( ManagementDatabaseFactory::TYPES ) )
+			);
+		}
+		return $dbType;
 	}
 
 	/**
