@@ -3,7 +3,9 @@
 namespace BlueSpice\Service\ParallelRunJobs\Queue;
 
 use BlueSpice\Service\ParallelRunJobs\Config;
-use mysqli;
+use BlueSpice\Service\ParallelRunJobs\Database\ManagementDatabase;
+use BlueSpice\Service\ParallelRunJobs\Database\ManagementDatabaseException;
+use BlueSpice\Service\ParallelRunJobs\Database\ManagementDatabaseFactory;
 use Psr\Log\LoggerInterface;
 
 class DatabaseQueue implements Queue {
@@ -18,9 +20,9 @@ class DatabaseQueue implements Queue {
 	private int $lastFetch = 0;
 
 	/**
-	 * @var mysqli|null
+	 * @var ManagementDatabase|null
 	 */
-	protected ?mysqli $managementDb = null;
+	protected ?ManagementDatabase $managementDb = null;
 
 	public function __construct(
 		protected Config $config,
@@ -51,29 +53,19 @@ class DatabaseQueue implements Queue {
 	}
 
 	private function fetchAll() {
-		$this->assertManagementConnection();
-		$table = $this->config->getConnection()['dbprefix'] . 'simple_farmer_instances';
 		$include = $this->config->getFarmConfig()['include-instances'] ?? [];
 		$exclude = $this->config->getFarmConfig()['exclude-instances'] ?? [];
 		$include = array_diff( $include, $exclude );
 
-		$rows = $this->managementDb->query( "SELECT sfi_path FROM $table WHERE sfi_status = 'ready'" );
 		$instances = [];
-		$row = $rows->fetch_assoc();
-
-		while ( $row !== null ) {
-			$path = $row['sfi_path'];
-
+		foreach ( $this->getReadyInstancePaths() as $path ) {
 			if (
 				( !empty( $include ) && !in_array( $path, $include ) ) ||
 				( empty( $include ) && !empty( $exclude ) && in_array( $path, $exclude ) )
 			) {
-				$row = $rows->fetch_assoc();
 				continue;
 			}
-
 			$instances[] = $path;
-			$row = $rows->fetch_assoc();
 		}
 
 		$instances[] = 'w';
@@ -90,28 +82,18 @@ class DatabaseQueue implements Queue {
 	}
 
 	/**
-	 * @return void
+	 * @return string[]
 	 */
-	protected function assertManagementConnection() {
-		if ( $this->managementDb === null ) {
-			$this->managementDb = new mysqli(
-				$this->config->getConnection()['dbserver'],
-				$this->config->getConnection()['dbuser'],
-				$this->config->getConnection()['dbpassword'],
-				$this->config->getConnection()['dbname'],
-				$this->config->getConnection()['dbport']
-			);
-			$this->logger->notice( sprintf(
-				'Connected to management database "%s" at %s:%s',
-				$this->config->getConnection()['dbname'],
-				$this->config->getConnection()['dbserver'],
-				$this->config->getConnection()['dbport']
-			) );
-		}
-		// Test connection
-		$this->managementDb->query( 'SELECT 1' );
-		if ( $this->managementDb->errno ) {
-			$this->logger->error( 'Management database connection failed: ' . $this->managementDb->error );
+	protected function getReadyInstancePaths(): array {
+		try {
+			if ( $this->managementDb === null ) {
+				$this->managementDb = ManagementDatabaseFactory::create(
+					$this->config->getConnection(), $this->logger
+				);
+			}
+			return $this->managementDb->getReadyInstancePaths();
+		} catch ( ManagementDatabaseException $e ) {
+			$this->logger->error( 'Management database query failed: ' . $e->getMessage() );
 			exit( 1 );
 		}
 	}
